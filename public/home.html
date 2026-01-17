@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="box center">
+    <h2 id="statusText">waiting for room</h2>
+    <button id="join" disabled onclick="join()">join room</button>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+if(localStorage.role!=='user') location='/';
+
+const socket = io({query:{username:localStorage.username}});
+//fix: avoid reserved 'status' keyword
+const statusEl = document.getElementById('statusText');
+const joinBtn = document.getElementById('join');
+
+socket.on('room_created', () => {
+  statusEl.innerText = 'room live';
+  joinBtn.disabled = false;
+});
+
+function join(){ location='/play.html'; }
+</script>
+</body>
+</html>

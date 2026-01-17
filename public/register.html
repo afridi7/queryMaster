@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>register</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="box">
+    <h1>register</h1>
+    <input id="username" placeholder="username">
+    <input id="password" type="password" placeholder="password">
+    <input id="confirm" type="password" placeholder="confirm password">
+    <button onclick="register()">create account</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+<script>
+const BLOCKED = ['admin', 'host'];
+
+async function register() {
+  const msg = document.getElementById('msg');
+  msg.innerText = '';
+
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value.trim();
+  const c = document.getElementById('confirm').value.trim();
+
+  if (!u || !p || !c) { msg.innerText = 'all fields required'; return; }
+  if (p !== c) { msg.innerText = 'passwords do not match'; return; }
+  if (BLOCKED.includes(u)) { msg.innerText = 'reserved username'; return; }
+
+  try {
+    const res = await fetch('/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+
+    if (!res.ok) { msg.innerText = data.error || 'registration failed'; return; }
+
+    localStorage.username = data.username;
+    localStorage.role = 'user';
+    location = '/home.html';
+  } catch {
+    msg.innerText = 'server error';
+  }
+}
+</script>
+</body>
+</html>

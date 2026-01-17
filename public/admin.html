@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .csv-box { border-top: 1px solid #333; margin-top: 16px; padding-top: 16px; }
+    .file-input { margin-bottom: 10px; background: #000; padding: 5px; border: 1px solid #444; color: #888; }
+    .status { font-size: 12px; color: #888; text-align: right; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>admin</h2>
+    <button onclick="create()">create room</button>
+    
+    <div class="csv-box">
+      <div class="status" id="qCount">queue: 0</div>
+      <input type="file" id="csvInput" accept=".csv" class="file-input" onchange="handleFile()">
+      <button id="nextBtn" class="secondary" onclick="fillNext()" disabled>fill next from csv</button>
+    </div>
+
+    <hr>
+    
+    <input id="q" placeholder="question">
+    <input id="o1" placeholder="option 1">
+    <input id="o2" placeholder="option 2">
+    <input id="o3" placeholder="option 3">
+    <input id="o4" placeholder="option 4">
+    <input id="c" placeholder="correct index (0-3)">
+    <input id="t" placeholder="duration ms (def: 30000)">
+    
+    <button onclick="openQ()">open question</button>
+    <button class="secondary" onclick="reveal()">reveal</button>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+if(localStorage.role !== 'admin') location = '/';
+const socket = io({query:{role:'admin'}});
+
+let questionQueue = [];
+
+//core socket functions
+function create(){ socket.emit('create_room'); }
+
+function openQ(){
+  const text = document.getElementById('q').value;
+  const o1 = document.getElementById('o1').value;
+  const o2 = document.getElementById('o2').value;
+  const o3 = document.getElementById('o3').value;
+  const o4 = document.getElementById('o4').value;
+  const c = document.getElementById('c').value;
+  const t = document.getElementById('t').value;
+
+  if(!text || !o1 || !o2 || !c) return alert('missing fields');
+
+  socket.emit('open_question', {
+    text: text,
+    options: [o1, o2, o3, o4],
+    correctIndex: Number(c),
+    duration: Number(t || 30000)
+  });
+}
+
+function reveal(){ socket.emit('reveal'); }
+
+//csv logic
+
+function handleFile() {
+  const file = document.getElementById('csvInput').files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    parseCSV(text);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  //reset queue
+  questionQueue = [];
+  
+  //split by newlines, remove header if strictly needed, but flexible here
+  const lines = text.split('\n').filter(l => l.trim().length > 0);
+
+  lines.forEach(line => {
+    //simple csv split (handles basic commas)
+    //format: question,opt1,opt2,opt3,opt4,correctIndex,duration
+    const parts = line.split(',').map(p => p.trim());
+    
+    if (parts.length >= 6) {
+      questionQueue.push({
+        q: parts[0],
+        o1: parts[1],
+        o2: parts[2],
+        o3: parts[3],
+        o4: parts[4],
+        c: parts[5],
+        t: parts[6] || 30000
+      });
+    }
+  });
+
+  updateUI();
+  alert(`loaded ${questionQueue.length} questions`);
+}
+
+function fillNext() {
+  if (questionQueue.length === 0) return;
+
+  const next = questionQueue.shift(); //get first and remove
+  
+  document.getElementById('q').value = next.q;
+  document.getElementById('o1').value = next.o1;
+  document.getElementById('o2').value = next.o2;
+  document.getElementById('o3').value = next.o3;
+  document.getElementById('o4').value = next.o4;
+  document.getElementById('c').value = next.c;
+  document.getElementById('t').value = next.t;
+
+  updateUI();
+}
+
+function updateUI() {
+  const count = questionQueue.length;
+  document.getElementById('qCount').innerText = `queue: ${count}`;
+  document.getElementById('nextBtn').disabled = count === 0;
+  document.getElementById('nextBtn').innerText = count > 0 ? 'fill next from csv' : 'queue empty';
+}
+</script>
+</body>
+</html>

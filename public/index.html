@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>queryMaster</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="box">
+    <h1>queryMaster</h1>
+    <input id="username" placeholder="username" autocomplete="off">
+    <input id="password" type="password" placeholder="password">
+    <button onclick="login()">login</button>
+    <button class="secondary" onclick="goRegister()">register</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+<script>
+  //hardcoded privileged access
+  const ADMIN_USER = 'admin';
+  const ADMIN_PASS = 'admin123';
+  const HOST_USER = 'host';
+  const HOST_PASS = 'host123';
+
+  function goRegister() { window.location.href = '/register.html'; }
+
+  async function login() {
+    const msg = document.getElementById('msg');
+    const u = document.getElementById('username').value.trim();
+    const p = document.getElementById('password').value.trim();
+
+    msg.innerText = '';
+    if (!u || !p) { msg.innerText = 'username and password required'; return; }
+
+    //admin gate
+    if (u === ADMIN_USER) {
+      if (p !== ADMIN_PASS) { msg.innerText = 'invalid admin password'; return; }
+      localStorage.clear();
+      localStorage.role = 'admin';
+      window.location.href = '/admin.html';
+      return;
+    }
+
+    //host gate
+    if (u === HOST_USER) {
+      if (p !== HOST_PASS) { msg.innerText = 'invalid host password'; return; }
+      localStorage.clear();
+      localStorage.role = 'host';
+      window.location.href = '/host.html';
+      return;
+    }
+
+    //user login
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+
+      if (!res.ok) { msg.innerText = data.error || 'login failed'; return; }
+
+      localStorage.username = data.username;
+      localStorage.role = 'user';
+      window.location.href = '/home.html';
+    } catch {
+      msg.innerText = 'server unreachable';
+    }
+  }
+</script>
+</body>
+</html>

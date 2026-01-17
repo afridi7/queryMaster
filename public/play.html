@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>play</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="box">
+    <h2 id="q">waiting</h2>
+    <div class="timer" id="timer"></div>
+    <ul class="list" id="opts"></ul>
+    <div id="stats" class="center"></div>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io({query:{username:localStorage.username}});
+let locked = false, tickInt = null;
+
+const qEl = document.getElementById('q');
+const optsEl = document.getElementById('opts');
+const statsEl = document.getElementById('stats');
+const timerEl = document.getElementById('timer');
+
+socket.on('question_open', q => {
+  locked = false;
+  qEl.innerText = q.text;
+  optsEl.innerHTML = '';
+  statsEl.innerText = '';
+  
+  clearInterval(tickInt);
+  tickInt = setInterval(() => {
+    timerEl.innerText = Math.max(0, Math.ceil((q.endsAt - Date.now())/1000)) + 's';
+  }, 500);
+
+  q.options.forEach((o, i) => {
+    const li = document.createElement('li');
+    li.innerText = o;
+    li.onclick = () => {
+      if(locked) return;
+      locked = true;
+      socket.emit('submit', i);
+      li.style.background = '#444';
+    };
+    optsEl.appendChild(li);
+  });
+});
+
+socket.on('live_stats', s => statsEl.innerText = JSON.stringify(s));
+socket.on('submission_closed', () => timerEl.innerText = 'time up');
+socket.on('reveal', r => statsEl.innerText = 'correct: ' + r.correctIndex + ' ' + JSON.stringify(r.stats));
+</script>
+</body>
+</html>
