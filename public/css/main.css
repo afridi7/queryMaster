@@ -1,4 +1,7 @@
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   height: 100vh;
@@ -9,6 +12,8 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+/* login / home / admin */
 .box {
   width: 340px;
   padding: 24px;
@@ -16,57 +21,198 @@ body {
   border: 1px solid #333;
   border-radius: 10px;
 }
-h1, h2 { text-align: center; margin: 0 0 16px; }
+
+.center {
+  text-align: center;
+}
+
+h1, h2 {
+  text-align: center;
+  margin: 0 0 16px;
+}
+
+/* INPUTS,BUTTONS */
 input, button {
   width: 100%;
   padding: 10px;
   margin-bottom: 12px;
   border-radius: 6px;
 }
+
 input {
   background: #000;
   border: 1px solid #444;
   color: #fff;
 }
+
 button {
   border: none;
   background: #4da3ff;
   color: #000;
   cursor: pointer;
+  font-weight: 600;
 }
-button:disabled { opacity: 0.5; cursor: default; }
-button.secondary { background: #333; color: #fff; }
-.msg { font-size: 13px; color: #ff6b6b; text-align: center; }
-.center { text-align: center; }
 
-.list { list-style: none; padding: 0; }
-.list li {
-  padding: 10px;
-  border: 1px solid #333;
-  border-radius: 6px;
+button.secondary {
+  background: #333;
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* MESSAGES */
+.msg {
+  font-size: 13px;
+  color: #ff6b6b;
+  text-align: center;
+}
+
+/* QUIZ (PARTICIPANT) */
+
+.box.quiz {
+  background: #1a1b21;
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 420px; /* phone / tablet feel */
+}
+
+/* timer text */
+.timer {
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.85;
   margin-bottom: 8px;
+}
+
+/* timer bar */
+.time-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: #222;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.time-bar {
+  height: 100%;
+  width: 100%;
+  background: #3b7bff;
+  transition: width linear;
+}
+
+/* options list */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.list li {
+  padding: 14px;
+  margin-bottom: 10px;
+  background: #2a2b32;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: 0.15s;
+  user-select: none;
 }
 
-.timer { text-align: center; margin-bottom: 8px; opacity: 0.8; }
+.list li:hover {
+  background: #32333b;
+}
 
+/* selected (before lock) */
 .list li.selected {
-  background: #d4a017;
-  border-color: #d4a017;
-  color: #000;
-  font-weight: bold;
+  outline: 3px solid rgba(80,125,255,0.6);
+  background: #2b3350;
 }
 
+/* locked */
+.list li.locked {
+  cursor: default;
+  opacity: 0.95;
+}
+
+/* correct / wrong (participant logic handled in JS) */
 .list li.correct {
-  background: #2ecc71 !important;
-  border-color: #27ae60 !important;
-  color: #000;
+  background: #1c3d24 !important;
+  color: #c8f7d5;
   font-weight: bold;
 }
 
 .list li.wrong {
-  background: #e74c3c !important;
-  border-color: #c0392b !important;
+  background: #3d1c1c !important;
+  color: #ffd7d7;
+}
+
+/* neutral dim */
+.list li.dim {
+  opacity: 0.35;
+}
+
+/* lock answer button */
+.lock-btn {
+  margin-top: 14px;
+  padding: 14px;
+  width: 100%;
+  border-radius: 12px;
+  background: #2a2b32;
+  color: #aaa;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lock-btn:not(:disabled):hover {
+  background: #3a3b44;
+}
+
+.lock-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* stats */
+.stats {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #aaa;
+  text-align: center;
+}
+
+/* HOST (TV / DESKTOP) */
+
+body.host-screen {
+  display: grid;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+/* options grid already handled in host.html inline CSS */
+/* keep quiz colors consistent */
+.host-screen .option {
+  background: #2a2b32;
+}
+
+.host-screen .option.correct {
+  background: #0a8f3c;
   color: #fff;
+  font-weight: bold;
+}
+
+.host-screen .option.dim {
+  opacity: 0.35;
+}
+
+/* ADMIN (DESKTOP-FIRST) */
+
+@media (min-width: 900px) {
+  .box {
+    width: 420px;
+  }
 }

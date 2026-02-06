@@ -1,74 +1,122 @@
+<!-- host screen (TV / projector display) -->
+
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>host</title>
+  <title>queryMaster – Live Screen</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/css/main.css">
-  <style>
-    body { flex-direction: row; gap: 20px; }
-    .box { width: 400px; }
-    .leaderboard { width: 300px; height: 400px; overflow-y: auto; }
-    .lb-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; }
-    .lb-score { font-weight: bold; color: #4da3ff; }
-  </style>
+  <link rel="stylesheet" href="/css/host.css">
+
 </head>
-<body>
-  
-  <div class="box">
-    <h2 id="q">live</h2>
-    <div class="timer" id="timer"></div>
-    <ul class="list" id="opts"></ul>
-    <div id="stats" class="center"></div>
+
+<body class="host-screen">
+
+  <!-- MAIN QUESTION AREA -->
+  <div class="host-main">
+    <div class="host-meta" id="meta">waiting for question</div>
+    <div class="host-question" id="question">—</div>
+
+    <!-- timer -->
+    <div class="time-bar-wrap">
+      <div class="time-bar" id="timeBar"></div>
+    </div>
+    <div class="timer-text" id="timerText">--</div>
+
+    <!-- options -->
+    <div class="options" id="options"></div>
   </div>
 
-  <div class="box leaderboard">
+  <!-- LEADERBOARD -->
+  <div class="leaderboard">
     <h2>Leaderboard</h2>
-    <div id="lbList"></div>
+    <div class="lb-list" id="lbList"></div>
   </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-const qEl = document.getElementById('q');
-const optsEl = document.getElementById('opts');
-const statsEl = document.getElementById('stats');
-const timerEl = document.getElementById('timer');
+
+const metaEl = document.getElementById('meta');
+const qEl = document.getElementById('question');
+const optionsEl = document.getElementById('options');
+const timerText = document.getElementById('timerText');
+const timeBar = document.getElementById('timeBar');
 const lbList = document.getElementById('lbList');
 
+let timerInterval = null;
+
+/* QUESTION OPEN */
 socket.on('question_open', q => {
+  metaEl.innerText = `Question ${q.index + 1}`;
   qEl.innerText = q.text;
-  optsEl.innerHTML = '';
-  statsEl.innerText = '';
-  
-  setInterval(() => {
-    timerEl.innerText = Math.max(0, Math.ceil((q.endsAt - Date.now())/1000)) + 's';
-  }, 500);
+  optionsEl.innerHTML = '';
+  clearInterval(timerInterval);
 
-  q.options.forEach((o,i) => {
-    const li = document.createElement('li');
-    li.innerText = o;
-    li.id = 'opt-' + i;
-    optsEl.appendChild(li);
-  });
-});
+  // timer
+  startTimer(q.endsAt);
 
-socket.on('live_stats', s => statsEl.innerText = JSON.stringify(s));
-
-socket.on('reveal', r => {
-  //highlight correct answer on host screen too
-  const correctLi = document.getElementById('opt-' + r.correctIndex);
-  if(correctLi) correctLi.classList.add('correct');
-
-  //update leaderboard
-  lbList.innerHTML = '';
-  r.leaderboard.forEach(p => {
+  // options
+  q.options.forEach((opt, i) => {
     const div = document.createElement('div');
-    div.className = 'lb-item';
-    div.innerHTML = `<span>${p.username}</span><span class="lb-score">${p.score}</span>`;
-    lbList.appendChild(div);
+    div.className = 'option';
+    div.id = 'opt-' + i;
+    div.innerText = opt;
+    optionsEl.appendChild(div);
   });
 });
+
+/* TIMER */
+function startTimer(end) {
+  function tick() {
+    const remaining = Math.max(0, end - Date.now());
+    timerText.innerText = Math.ceil(remaining / 1000) + 's';
+    if (remaining <= 0) clearInterval(timerInterval);
+  }
+
+  tick();
+  timerInterval = setInterval(tick, 500);
+
+  const total = end - Date.now();
+  timeBar.style.transition = 'none';
+  timeBar.style.width = '100%';
+
+  setTimeout(() => {
+    timeBar.style.transition = `width ${total}ms linear`;
+    timeBar.style.width = '0%';
+  }, 50);
+}
+
+/* REVEAL */
+socket.on('reveal', r => {
+  // clear all
+  document.querySelectorAll('.option').forEach(el=>{
+    el.classList.remove('correct','dim');
+  });
+
+  // highlight correct
+  const correct = document.getElementById('opt-'+r.correctIndex);
+  if(correct) correct.classList.add('correct');
+
+  // dim others
+  document.querySelectorAll('.option').forEach(el=>{
+    if(el!==correct) el.classList.add('dim');
+  });
+
+  // leaderboard
+  lbList.innerHTML='';
+  (r.leaderboard||[])
+    .sort((a,b)=>b.score-a.score)
+    .forEach(p=>{
+      const row=document.createElement('div');
+      row.className='lb-item';
+      row.innerHTML=`<span>${p.username}</span><span class="lb-score">${p.score}</span>`;
+      lbList.appendChild(row);
+    });
+});
+
+
 </script>
 </body>
 </html>

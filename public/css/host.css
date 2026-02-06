@@ -1,0 +1,119 @@
+body.host-screen {
+    margin: 0;
+    padding: 30px;
+    background: #0b0b0f;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 30px;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+/* QUESTION AREA */
+.host-main {
+    background: #000;
+    border-radius: 20px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+.host-meta {
+    font-size: 14px;
+    opacity: 0.7;
+    margin-bottom: 8px;
+}
+
+.host-question {
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+/* TIMER */
+.time-bar-wrap {
+    width: 100%;
+    height: 8px;
+    background: #222;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.time-bar {
+    height: 100%;
+    width: 100%;
+    background: #3b7bff;
+    transition: width linear;
+}
+
+.timer-text {
+    font-size: 18px;
+    opacity: 0.8;
+    margin-bottom: 20px;
+}
+
+/* OPTIONS GRID */
+.options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    flex: 1;
+}
+
+.option {
+    background: #2a2b32;
+    border-radius: 16px;
+    padding: 28px;
+    font-size: 24px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.option.correct {
+    background: #0a8f3c;
+    color: #fff;
+    font-weight: bold;
+}
+
+.option.dim {
+    opacity: 0.35;
+}
+
+/* LEADERBOARD */
+.leaderboard {
+    background: #111;
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.leaderboard h2 {
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 22px;
+}
+
+.lb-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.lb-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    font-size: 18px;
+}
+
+.lb-score {
+    color: #3b7bff;
+    font-weight: bold;
+}

@@ -1,3 +1,5 @@
+<!-- participant game page -->
+
 <!doctype html>
 <html>
 <head>
@@ -7,50 +9,162 @@
   <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
-  <div class="box">
-    <h2 id="q">waiting</h2>
-    <div class="timer" id="timer"></div>
-    <ul class="list" id="opts"></ul>
-    <div id="stats" class="center"></div>
+
+<div class="box quiz">
+  <h2 id="q">waiting for question</h2>
+
+  <!-- timer bar -->
+  <div class="time-bar-wrap">
+    <div class="time-bar" id="timeBar"></div>
   </div>
+
+  <!-- timer text -->
+  <div class="timer" id="timerText">--</div>
+
+  <!-- options -->
+  <ul class="list" id="opts"></ul>
+
+  <!-- lock button -->
+  <button id="lockBtn" class="lock-btn" disabled>lock answer</button>
+
+  <!-- status -->
+  <div id="stats" class="stats"></div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io({query:{username:localStorage.username}});
-let locked = false, tickInt = null;
+if (localStorage.role !== 'user') location = '/';
+
+const socket = io({ query: { username: localStorage.username } });
 
 const qEl = document.getElementById('q');
 const optsEl = document.getElementById('opts');
 const statsEl = document.getElementById('stats');
-const timerEl = document.getElementById('timer');
+const timerText = document.getElementById('timerText');
+const timeBar = document.getElementById('timeBar');
+const lockBtn = document.getElementById('lockBtn');
 
+let selectedIndex = null;
+let locked = false;
+let timerInterval = null;
+let endTime = 0;
+
+/* QUESTION OPEN */
 socket.on('question_open', q => {
+  // reset
+  selectedIndex = null;
   locked = false;
+  statsEl.innerText = '';
   qEl.innerText = q.text;
   optsEl.innerHTML = '';
-  statsEl.innerText = '';
-  
-  clearInterval(tickInt);
-  tickInt = setInterval(() => {
-    timerEl.innerText = Math.max(0, Math.ceil((q.endsAt - Date.now())/1000)) + 's';
-  }, 500);
+  lockBtn.disabled = true;
+  lockBtn.innerText = 'lock answer';
 
-  q.options.forEach((o, i) => {
+  clearInterval(timerInterval);
+
+  endTime = q.endsAt;
+  startTimer(endTime);
+
+  // render options
+  q.options.forEach((opt, i) => {
     const li = document.createElement('li');
-    li.innerText = o;
-    li.onclick = () => {
-      if(locked) return;
-      locked = true;
-      socket.emit('submit', i);
-      li.style.background = '#444';
-    };
+    li.innerText = opt;
+    li.onclick = () => selectOption(i);
     optsEl.appendChild(li);
   });
 });
 
-socket.on('live_stats', s => statsEl.innerText = JSON.stringify(s));
-socket.on('submission_closed', () => timerEl.innerText = 'time up');
-socket.on('reveal', r => statsEl.innerText = 'correct: ' + r.correctIndex + ' ' + JSON.stringify(r.stats));
+/* OPTION SELECT */
+function selectOption(i) {
+  if (locked) return;
+
+  selectedIndex = i;
+  lockBtn.disabled = false;
+
+  [...optsEl.children].forEach((li, idx) => {
+    li.classList.toggle('selected', idx === i);
+  });
+}
+
+/* LOCK ANSWER */
+lockBtn.onclick = () => {
+  if (locked || selectedIndex === null) return;
+
+  locked = true;
+  lockBtn.disabled = true;
+  lockBtn.innerText = 'answer locked, waiting...';
+
+  freezeTimer();
+
+  [...optsEl.children].forEach(li => {
+    li.classList.remove('selected');
+    li.classList.add('locked');
+  });
+
+  socket.emit('submit', selectedIndex);
+};
+
+/* TIMER */
+function startTimer(end) {
+  function tick() {
+    const remaining = Math.max(0, end - Date.now());
+    timerText.innerText = Math.ceil(remaining / 1000) + 's';
+
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      timerText.innerText = 'time up';
+      lockBtn.disabled = true;
+    }
+  }
+
+  tick();
+  timerInterval = setInterval(tick, 500);
+
+  // timer bar
+  const total = end - Date.now();
+  timeBar.style.transition = 'none';
+  timeBar.style.width = '100%';
+
+  setTimeout(() => {
+    timeBar.style.transition = `width ${total}ms linear`;
+    timeBar.style.width = '0%';
+  }, 50);
+}
+
+function freezeTimer() {
+  clearInterval(timerInterval);
+  timeBar.style.transition = 'none';
+}
+
+/* SERVER EVENTS */
+socket.on('submission_closed', () => {
+  if (!locked) {
+    timerText.innerText = 'time up';
+    lockBtn.disabled = true;
+  }
+});
+
+/* REVEAL */
+socket.on('reveal', r => {
+  const correct = r.correctIndex;
+
+  [...optsEl.children].forEach((li, idx) => {
+    li.classList.remove('selected', 'locked');
+
+    if (idx === correct) {
+      // correct answer always green
+      li.classList.add('correct');
+    } else if (idx === selectedIndex) {
+      // ONLY user's wrong answer red
+      li.classList.add('wrong');
+    } else {
+      // others stay neutral
+      li.classList.add('dim');
+    }
+  });
+
+  statsEl.innerText = 'answer revealed';
+});
 </script>
 </body>
 </html>
