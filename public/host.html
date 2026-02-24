@@ -1,5 +1,3 @@
-<!-- host screen (TV / projector display) -->
-
 <!doctype html>
 <html>
 <head>
@@ -9,22 +7,78 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/host.css">
 
+  <style>
+    /* WINNER SCREEN */
+    .winner-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      display: none;
+    }
+
+    .winner-title {
+      font-size: 48px;
+      margin-bottom: 40px;
+    }
+
+    .podium {
+      display: flex;
+      align-items: flex-end;
+      gap: 40px;
+    }
+
+    .podium-item {
+      text-align: center;
+      padding: 20px;
+      border-radius: 12px;
+      min-width: 200px;
+      animation: rise 0.8s ease forwards;
+    }
+
+    .first { background: gold; height: 260px; }
+    .second { background: silver; height: 220px; }
+    .third { background: #cd7f32; height: 180px; }
+
+    .podium-item h3 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .podium-item p {
+      margin: 6px 0;
+      font-weight: bold;
+    }
+
+    @keyframes rise {
+      from { transform: translateY(100px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
 </head>
 
 <body class="host-screen">
+
+  <!-- WINNER OVERLAY -->
+  <div class="winner-overlay" id="winnerOverlay">
+    <div class="winner-title">🏆 TOP 3 WINNERS 🏆</div>
+    <div class="podium" id="podium"></div>
+  </div>
 
   <!-- MAIN QUESTION AREA -->
   <div class="host-main">
     <div class="host-meta" id="meta">waiting for question</div>
     <div class="host-question" id="question">—</div>
 
-    <!-- timer -->
     <div class="time-bar-wrap">
       <div class="time-bar" id="timeBar"></div>
     </div>
     <div class="timer-text" id="timerText">--</div>
 
-    <!-- options -->
     <div class="options" id="options"></div>
   </div>
 
@@ -44,20 +98,23 @@ const optionsEl = document.getElementById('options');
 const timerText = document.getElementById('timerText');
 const timeBar = document.getElementById('timeBar');
 const lbList = document.getElementById('lbList');
+const winnerOverlay = document.getElementById('winnerOverlay');
+const podium = document.getElementById('podium');
 
 let timerInterval = null;
 
 /* QUESTION OPEN */
 socket.on('question_open', q => {
-  metaEl.innerText = `Question ${q.index + 1}`;
+
+  winnerOverlay.style.display = 'none';
+
+  metaEl.innerText = `LIVE QUESTION`;
   qEl.innerText = q.text;
   optionsEl.innerHTML = '';
   clearInterval(timerInterval);
 
-  // timer
   startTimer(q.endsAt);
 
-  // options
   q.options.forEach((opt, i) => {
     const div = document.createElement('div');
     div.className = 'option';
@@ -69,54 +126,79 @@ socket.on('question_open', q => {
 
 /* TIMER */
 function startTimer(end) {
+
+  clearInterval(timerInterval);
+
+  const total = end - Date.now();
+
+  timeBar.style.transition = 'none';
+  timeBar.style.width = '100%';
+  void timeBar.offsetWidth;
+
+  timeBar.style.transition = `width ${total}ms linear`;
+  timeBar.style.width = '0%';
+
   function tick() {
     const remaining = Math.max(0, end - Date.now());
     timerText.innerText = Math.ceil(remaining / 1000) + 's';
+
     if (remaining <= 0) clearInterval(timerInterval);
   }
 
   tick();
-  timerInterval = setInterval(tick, 500);
-
-  const total = end - Date.now();
-  timeBar.style.transition = 'none';
-  timeBar.style.width = '100%';
-
-  setTimeout(() => {
-    timeBar.style.transition = `width ${total}ms linear`;
-    timeBar.style.width = '0%';
-  }, 50);
+  timerInterval = setInterval(tick, 300);
 }
 
-/* REVEAL */
+/* REVEAL ANSWER */
 socket.on('reveal', r => {
-  // clear all
+
   document.querySelectorAll('.option').forEach(el=>{
     el.classList.remove('correct','dim');
   });
 
-  // highlight correct
   const correct = document.getElementById('opt-'+r.correctIndex);
   if(correct) correct.classList.add('correct');
 
-  // dim others
   document.querySelectorAll('.option').forEach(el=>{
     if(el!==correct) el.classList.add('dim');
   });
 
-  // leaderboard
+  // Update leaderboard with username + code
   lbList.innerHTML='';
-  (r.leaderboard||[])
+
+  (r.leaderboard || [])
     .sort((a,b)=>b.score-a.score)
-    .forEach(p=>{
+    .forEach((p,i)=>{
       const row=document.createElement('div');
       row.className='lb-item';
-      row.innerHTML=`<span>${p.username}</span><span class="lb-score">${p.score}</span>`;
+      row.innerHTML=`
+        <span>${i+1}. ${p.username} (${p.code})</span>
+        <span class="lb-score">${p.score}</span>
+      `;
       lbList.appendChild(row);
     });
 });
 
+/* TOP 3 WINNER DISPLAY */
+socket.on('show_winners', top3 => {
 
+  podium.innerHTML='';
+  winnerOverlay.style.display='flex';
+
+  const positions = ['first','second','third'];
+
+  top3.forEach((p,i)=>{
+    const div=document.createElement('div');
+    div.className=`podium-item ${positions[i] || ''}`;
+    div.innerHTML=`
+      <h3>${i+1} Place</h3>
+      <p>${p.username}</p>
+      <p>ID: ${p.code}</p>
+      <p>${p.score} pts</p>
+    `;
+    podium.appendChild(div);
+  });
+});
 </script>
 </body>
 </html>

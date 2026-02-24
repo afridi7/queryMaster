@@ -18,43 +18,63 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 let room = null;
 
-//auth
+/* AUTH */
+
 app.post('/register', async (req, res) => {
   try {
     let { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'missing fields' });
+    if (!username || !password)
+      return res.status(400).json({ error: 'missing fields' });
+
     username = String(username).trim();
+
     const existing = await User.findOne({ username });
-    if (existing) return res.status(409).json({ error: 'user already exists' });
+    if (existing)
+      return res.status(409).json({ error: 'user already exists' });
+
     const hashedPassword = await bcrypt.hash(password, 10);
     await User.create({ username, password: hashedPassword });
+
     res.json({ ok: true, username });
-  } catch (err) { res.status(500).json({ error: 'server error' }); }
+  } catch {
+    res.status(500).json({ error: 'server error' });
+  }
 });
 
 app.post('/login', async (req, res) => {
   try {
     let { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'missing fields' });
+    if (!username || !password)
+      return res.status(400).json({ error: 'missing fields' });
+
     const user = await User.findOne({ username });
-    if (!user) return res.status(401).json({ error: 'invalid credentials' });
+    if (!user)
+      return res.status(401).json({ error: 'invalid credentials' });
+
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'invalid credentials' });
+    if (!match)
+      return res.status(401).json({ error: 'invalid credentials' });
+
     res.json({ ok: true, username });
-  } catch (err) { res.status(500).json({ error: 'server error' }); }
+  } catch {
+    res.status(500).json({ error: 'server error' });
+  }
 });
 
-//socket logic
+/* SOCKET */
 
 io.on('connection', socket => {
   const { role, username } = socket.handshake.query;
 
-  //admin
+  /* ADMIN */
+
   if (role === 'admin') {
+
     socket.on('create_room', () => {
       if (room?.timer) clearTimeout(room.timer);
+
       room = {
-        participants: {},
+        participants: {}, // socket.id -> { username, code }
         scores: {},
         question: null,
         submissions: {},
@@ -62,56 +82,78 @@ io.on('connection', socket => {
         revealed: false,
         timer: null
       };
+
       io.emit('room_created');
+      io.emit('clients', []);
     });
 
     socket.on('open_question', ({ text, options, correctIndex, duration }) => {
       if (!room) return;
+
       clearTimeout(room.timer);
 
-      room.question = { text, options, correctIndex, endsAt: Date.now() + duration };
+      room.question = {
+        text,
+        options,
+        correctIndex,
+        endsAt: Date.now() + duration
+      };
+
       room.submissions = {};
       room.stats = Array(options.length).fill(0);
       room.revealed = false;
 
-      io.emit('question_open', { text, options, endsAt: room.question.endsAt });
+      io.emit('question_open', {
+        text,
+        options,
+        endsAt: room.question.endsAt
+      });
 
-      room.timer = setTimeout(() => io.emit('submission_closed'), duration);
+      io.emit('live_stats', {
+        total: 0,
+        counts: room.stats
+      });
+
+      room.timer = setTimeout(() => {
+        io.emit('submission_closed');
+      }, duration);
     });
 
     socket.on('reveal', () => {
       if (!room?.question || room.revealed) return;
-      room.revealed = true;
 
-      //calculate scores
+      room.revealed = true;
       const correctIdx = room.question.correctIndex;
-      Object.entries(room.submissions).forEach(([socketId, answerIdx]) => {
+
+      Object.entries(room.submissions).forEach(([sid, answerIdx]) => {
         if (answerIdx === correctIdx) {
-          //if score is 0, add 100 points
-          room.scores[socketId] = (room.scores[socketId] || 0) + 100;
+          room.scores[sid] = (room.scores[sid] || 0) + 100;
         }
       });
 
-      //leaderboard(only top 10)
-      const leaderboard = Object.keys(room.participants)
-        .map(sid => ({
-          username: room.participants[sid],
-          score: room.scores[sid] || 0
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
+      const leaderboard = buildLeaderboard(10);
 
-      io.emit('reveal', { 
-        correctIndex: correctIdx, 
+      io.emit('reveal', {
+        correctIndex: correctIdx,
         stats: room.stats,
         leaderboard
       });
     });
+
+    socket.on('reveal_winners', () => {
+      if (!room) return;
+      const top3 = buildLeaderboard(3);
+      io.emit('show_winners', top3);
+    });
+
     return;
   }
 
-  //players and host
-  if (room) socket.emit('room_created');
+  /* PLAYERS/HOST */
+
+  if (room) {
+    socket.emit('room_created');
+  }
 
   if (room?.question) {
     socket.emit('question_open', {
@@ -119,24 +161,49 @@ io.on('connection', socket => {
       options: room.question.options,
       endsAt: room.question.endsAt
     });
-    if (room.revealed) {
-      //recalculate leaderboard for late joiners
-      const leaderboard = Object.keys(room.participants)
-        .map(sid => ({ username: room.participants[sid], score: room.scores[sid] || 0 }))
-        .sort((a, b) => b.score - a.score).slice(0, 10);
 
-      socket.emit('reveal', { 
-        correctIndex: room.question.correctIndex, 
+    if (room.revealed) {
+      socket.emit('reveal', {
+        correctIndex: room.question.correctIndex,
         stats: room.stats,
-        leaderboard 
+        leaderboard: buildLeaderboard(10)
       });
     }
   }
 
+  /* PARTICIPANT REGISTRATION */
+
   if (username && room) {
-    room.participants[socket.id] = username;
-    //ensure score init
-    if (!room.scores[socket.id]) room.scores[socket.id] = 0;
+
+    // Generate unique 4-char code
+    function generateCode() {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code;
+
+      do {
+        code = "";
+        for (let i = 0; i < 4; i++) {
+          code += chars[Math.floor(Math.random() * chars.length)];
+        }
+      } while (
+        Object.values(room.participants)
+          .some(p => p.code === code)
+      );
+
+      return code;
+    }
+
+    const code = generateCode();
+
+    room.participants[socket.id] = { username, code };
+    room.scores[socket.id] = room.scores[socket.id] || 0;
+
+    socket.emit('your_code', code);
+
+    io.emit('clients',
+      Object.values(room.participants)
+        .map(p => `${p.username} (${p.code})`)
+    );
 
     socket.on('submit', idx => {
       if (!room?.question) return;
@@ -146,15 +213,46 @@ io.on('connection', socket => {
 
       room.submissions[socket.id] = idx;
       room.stats[idx]++;
-      io.emit('live_stats', room.stats);
+
+      io.emit('live_stats', {
+        total: Object.keys(room.submissions).length,
+        counts: room.stats
+      });
     });
 
     socket.on('disconnect', () => {
-      //we keep scores even if disconnected briefly
-      if (room?.participants) delete room.participants[socket.id];
+      if (room?.participants) {
+        delete room.participants[socket.id];
+
+        io.emit('clients',
+          Object.values(room.participants)
+            .map(p => `${p.username} (${p.code})`)
+        );
+      }
     });
   }
+
 });
+
+/* LEADERBOARD BUILDER */
+
+function buildLeaderboard(limit) {
+  return Object.keys(room.participants)
+    .map(sid => ({
+      username: room.participants[sid].username,
+      code: room.participants[sid].code,
+      score: room.scores[sid] || 0
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return a.code.localeCompare(b.code); // tie-breaker
+    })
+    .slice(0, limit);
+}
+
+/* SERVER START */
 
 const PORT = process.env.PORT || 3000;
 

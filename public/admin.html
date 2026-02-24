@@ -43,8 +43,17 @@
         Waiting: <span id="waiting">0</span>
       </div>
 
-      <button id="revealBtn" class="secondary" disabled onclick="reveal()">
+      <button id="revealBtn"
+              class="secondary"
+              disabled
+              onclick="reveal()">
         REVEAL ANSWER
+      </button>
+
+      <!-- NEW WINNER BUTTON -->
+      <button style="margin-top:10px;background:#e67e22;color:#fff"
+              onclick="revealWinners()">
+        REVEAL TOP 3 WINNERS
       </button>
     </div>
 
@@ -117,8 +126,21 @@ function preview(q){
   });
 }
 
-function prevQ(){ if(currentIndex>0){currentIndex--;renderList();preview(questions[currentIndex]);}}
-function nextQ(){ if(currentIndex<questions.length-1){currentIndex++;renderList();preview(questions[currentIndex]);}}
+function prevQ(){
+  if(currentIndex>0){
+    currentIndex--;
+    renderList();
+    preview(questions[currentIndex]);
+  }
+}
+
+function nextQ(){
+  if(currentIndex<questions.length-1){
+    currentIndex++;
+    renderList();
+    preview(questions[currentIndex]);
+  }
+}
 
 function openSelected(){
   if(currentIndex<0) return;
@@ -128,18 +150,21 @@ function openSelected(){
 /* ADD */
 function addManual(){
   if(!q.value||!o1.value||!o2.value||!c.value) return;
+
   questions.push({
     text:q.value,
     options:[o1.value,o2.value,o3.value,o4.value],
     correctIndex:Number(c.value),
     duration:Number(t.value||30000)
   });
+
   renderList();
-}
+}śśśśśśśśśśśś
 
 function handleCSV(){
   const file=csvInput.files[0];
   if(!file) return;
+
   const r=new FileReader();
   r.onload=e=>{
     e.target.result.split('\n').forEach(line=>{
@@ -158,7 +183,7 @@ function handleCSV(){
   r.readAsText(file);
 }
 
-/* LIVE */
+/* LIVE STATS */
 socket.on('clients', list=>{
   joined=list.length;
   updateStats();
@@ -170,9 +195,9 @@ socket.on('live_stats', s=>{
 });
 
 function updateStats(){
-  joinedEl.innerText=joined;
-  answeredEl.innerText=answered;
-  waiting.innerText=Math.max(0,joined-answered);
+  document.getElementById('joined').innerText=joined;
+  document.getElementById('answered').innerText=answered;
+  document.getElementById('waiting').innerText=Math.max(0,joined-answered);
 }
 
 /* TIMER */
@@ -199,6 +224,12 @@ function reveal(){
   socket.emit('reveal');
   qState.innerText='REVEALED';
   revealBtn.disabled=true;
+}
+
+/* NEW WINNERS FUNCTION */
+function revealWinners(){
+  if(!confirm("Reveal Top 3 Winners on Host Screen?")) return;
+  socket.emit('reveal_winners');
 }
 </script>
 </body>
