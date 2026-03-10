@@ -10,21 +10,16 @@
 </head>
 <body>
   <div class="box">
-    <h1>queryMaster</h1>
-    <input id="username" placeholder="username" autocomplete="off">
-    <input id="password" type="password" placeholder="password">
-    <button onclick="login()">login</button>
-    <button class="secondary" onclick="goRegister()">register</button>
+    <h1>Welcome to</h1>
+    <h1>queryMaster</h1><br>
+    <input id="username" placeholder="Enter your username" autocomplete="off">
+    <input id="password" type="password" placeholder="Enter your password">
+    <button onclick="login()">Login</button>
+    <button class="secondary" onclick="goRegister()">New here? Register</button>
     <div id="msg" class="msg"></div>
   </div>
 
 <script>
-  //hardcoded privileged access
-  const ADMIN_USER = 'admin';
-  const ADMIN_PASS = 'admin';
-  const HOST_USER = 'host';
-  const HOST_PASS = 'host';
-
   function goRegister() { window.location.href = '/register.html'; }
 
   async function login() {
@@ -35,25 +30,7 @@
     msg.innerText = '';
     if (!u || !p) { msg.innerText = 'username and password required'; return; }
 
-    //admin gate
-    if (u === ADMIN_USER) {
-      if (p !== ADMIN_PASS) { msg.innerText = 'invalid admin password'; return; }
-      localStorage.clear();
-      localStorage.role = 'admin';
-      window.location.href = '/admin.html';
-      return;
-    }
-
-    //host gate
-    if (u === HOST_USER) {
-      if (p !== HOST_PASS) { msg.innerText = 'invalid host password'; return; }
-      localStorage.clear();
-      localStorage.role = 'host';
-      window.location.href = '/host.html';
-      return;
-    }
-
-    //user login
+    // send login request for everyone (users, host, admin)
     try {
       const res = await fetch('/login', {
         method: 'POST',
@@ -64,13 +41,23 @@
 
       if (!res.ok) { msg.innerText = data.error || 'login failed'; return; }
 
+      // store credentials
       localStorage.username = data.username;
-      localStorage.role = 'user';
-      window.location.href = '/home.html';
+      localStorage.role = data.role; // store the db-provided role
+
+      // redirect based on role
+      if (data.role === 'admin') {
+        window.location.href = '/admin.html';
+      } else if (data.role === 'host') {
+        window.location.href = '/host.html';
+      } else {
+        window.location.href = '/home.html';
+      }
     } catch {
       msg.innerText = 'server unreachable';
     }
   }
+
 </script>
 </body>
 </html>

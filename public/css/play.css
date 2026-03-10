@@ -1,0 +1,123 @@
+/* uid badge */
+.uid-badge {
+    position: fixed;
+    top: 15px;
+    right: 20px;
+    background: #481e02;
+    color: #fcf5ed;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    border: 1px solid #481e02;
+    z-index: 900;
+}
+
+.time-bar.danger {
+    background: #e74c3c !important;
+}
+
+.flash {
+    animation: flashBg 0.5s ease-in-out 3;
+}
+
+@keyframes flashBg {
+    0% {
+        background: #e74d3c39;
+    }
+
+    50% {
+        background: #e74c3c;
+    }
+
+    100% {
+        background: #e74d3c39;
+    }
+}
+
+/* modal styles */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background: #f9e5cd;
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    width: 90%;
+    max-width: 340px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    border: 1px solid #333;
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-title {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    color: #481e02;
+}
+
+.modal-score {
+    font-size: 36px;
+    color: #481e02;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.modal-rank {
+    font-size: 18px;
+    color: #f8b163;
+    margin-bottom: 25px;
+    font-weight: 500;
+}
+
+.close-btn {
+    background: #481e02;
+    color: #fcf5ed;
+    padding: 12px 24px;
+    width: 100%;
+    border-radius: 10px;
+    cursor: pointer;
+    border: none;
+    font-weight: 600;
+    font-size: 16px;
+    transition: background 0.2s;
+}
+
+.close-btn:hover {
+    background: #3a1802;
+}
+
+#startOverlay {
+    position:fixed;
+    inset:0;background: radial-gradient(circle at 20% 20%, #ffe8cc 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, #f8b163 0%, transparent 35%),
+    linear-gradient(135deg, #fcf5ed 0%, #f3d7b6 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.8) translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}

@@ -16,6 +16,9 @@
     <div>
       Room: <span id="roomState" class="idle">NOT STARTED</span>
     </div>
+    <button id="roomBtn"
+        style="margin-top:10px;width:300px;background:#481e02;color:#fcf5ed"
+        onclick="toggleRoom()">START ROOM</button>
     <div>
       Question: <span id="qState" class="idle">IDLE</span> |
       Time: <span id="adminTimer">--</span>
@@ -37,21 +40,21 @@
       <div class="preview-q" id="previewQ">Select a question</div>
       <div class="preview-opts" id="previewOpts"></div>
 
-      <div style="margin-top:16px;font-size:14px">
+      <div style="margin-top:16px;margin-bottom:16px;font-size:14px">
         Joined: <span id="joined">0</span> |
         Answered: <span id="answered">0</span> |
         Waiting: <span id="waiting">0</span>
       </div>
 
-      <button id="revealBtn"
-              class="secondary"
+      <button style="margin-top:10px;background:#2f9a6e;color:#fcf5ed"
+              id="revealBtn"
               disabled
               onclick="reveal()">
         REVEAL ANSWER
       </button>
 
       <!-- NEW WINNER BUTTON -->
-      <button style="margin-top:10px;background:#e67e22;color:#fff"
+      <button style="margin-top:10px;background:#f8b163;color:#481e02"
               onclick="revealWinners()">
         REVEAL TOP 3 WINNERS
       </button>
@@ -68,7 +71,7 @@
       <input id="o4" placeholder="option 4">
       <input id="c" placeholder="correct index (0-3)">
       <input id="t" placeholder="duration ms (default 30000)">
-      <button onclick="addManual()">Add</button>
+      <button style="margin-top:10px;background:#f8b163;color:#481e02" onclick="addManual()">Add</button>
 
       <hr>
       <input type="file" id="csvInput" accept=".csv" onchange="handleCSV()">
@@ -78,10 +81,9 @@
 
   <!-- BOTTOM -->
   <div class="bottom-bar">
-    <button onclick="startRoom()">START ROOM</button>
-    <button onclick="prevQ()">◀ PREV</button>
-    <button onclick="openSelected()">OPEN</button>
-    <button onclick="nextQ()">NEXT ▶</button>
+    <button style="margin-top:10px;background:#f8b163;color:#481e02" onclick="prevQ()">◀ PREV</button>
+    <button style="margin-top:10px;background:#2f9a6e;color:#fcf5ed" onclick="openSelected()">OPEN</button>
+    <button style="margin-top:10px;background:#f8b163;color:#481e02" onclick="nextQ()">NEXT ▶</button>
   </div>
 
 </div>
@@ -97,10 +99,31 @@ let joined=0, answered=0;
 let endsAt=0, timerInt=null;
 
 /* ROOM */
-function startRoom(){
-  socket.emit('create_room');
-  roomState.innerText='LIVE';
-  roomState.className='live';
+let roomLive = false;
+
+function toggleRoom(){
+  const btn = document.getElementById('roomBtn');
+
+  if(!roomLive){
+    socket.emit('create_room');
+    roomState.innerText = 'LIVE';
+    roomState.className = 'live';
+
+    btn.innerText = 'CLOSE ROOM';
+    btn.style.background = '#d64545';
+
+    roomLive = true;
+  } else {
+    socket.emit('close_room');
+
+    roomState.innerText = 'CLOSED';
+    roomState.className = 'idle';
+
+    btn.innerText = 'START ROOM';
+    btn.style.background = '#481e02';
+
+    roomLive = false;
+  }
 }
 
 /* QUESTIONS */
@@ -159,7 +182,7 @@ function addManual(){
   });
 
   renderList();
-}śśśśśśśśśśśś
+}
 
 function handleCSV(){
   const file=csvInput.files[0];

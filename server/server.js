@@ -12,7 +12,29 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-connectDB();
+// seed admin and host users if they don't exist
+async function seedPrivilegedUsers() {
+  try {
+    const adminExists = await User.findOne({ role: 'admin' });
+    if (!adminExists) {
+      const hashedAdmin = await bcrypt.hash('admin', 6); //changable
+      await User.create({ username: 'admin', password: hashedAdmin, role: 'admin' });
+      console.log('admin user created in database');
+    }
+
+    const hostExists = await User.findOne({ role: 'host' });
+    if (!hostExists) {
+      const hashedHost = await bcrypt.hash('host', 9); //changable
+      await User.create({ username: 'host', password: hashedHost, role: 'host' });
+      console.log('host user created in database');
+    }
+  } catch (err) {
+    console.error('failed to seed users:', err);
+  }
+}
+
+connectDB().then(seedPrivilegedUsers);
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -33,7 +55,8 @@ app.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'user already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({ username, password: hashedPassword });
+    // explicitly force role to 'user' so someone cannot inject an admin role
+    await User.create({ username, password: hashedPassword, role: 'user' });
 
     res.json({ ok: true, username });
   } catch {
@@ -55,7 +78,8 @@ app.post('/login', async (req, res) => {
     if (!match)
       return res.status(401).json({ error: 'invalid credentials' });
 
-    res.json({ ok: true, username });
+    // return the role back to the client
+    res.json({ ok: true, username: user.username, role: user.role });
   } catch {
     res.status(500).json({ error: 'server error' });
   }
@@ -91,11 +115,13 @@ io.on('connection', socket => {
       if (!room) return;
 
       clearTimeout(room.timer);
-
+      // record the exact start time for time-based scoring
+      room.questionStartedAt = Date.now();
       room.question = {
         text,
         options,
         correctIndex,
+        duration,
         endsAt: Date.now() + duration
       };
 
@@ -124,10 +150,15 @@ io.on('connection', socket => {
 
       room.revealed = true;
       const correctIdx = room.question.correctIndex;
+      const maxTime = room.question.duration || 15000;
 
-      Object.entries(room.submissions).forEach(([sid, answerIdx]) => {
-        if (answerIdx === correctIdx) {
-          room.scores[sid] = (room.scores[sid] || 0) + 100;
+      Object.entries(room.submissions).forEach(([sid, sub]) => {
+        if (sub.choice === correctIdx) {
+          // calculate speed bonus points
+          const timeBonus = Math.round(500 * (1 - (sub.timeTaken / maxTime)));
+          const pointsEarned = 500 + Math.max(0, timeBonus);
+          
+          room.scores[sid] = (room.scores[sid] || 0) + pointsEarned;
         }
       });
 
@@ -145,6 +176,18 @@ io.on('connection', socket => {
       const top3 = buildLeaderboard(3);
       io.emit('show_winners', top3);
     });
+
+    socket.on('close_room', () => {
+      if (!room) return;
+      if (room.timer) clearTimeout(room.timer);
+      
+      // notify all clients
+      io.emit('room_closed');
+
+      // reset everything
+      room = null;
+      io.emit('clients', []);
+  });
 
     return;
   }
@@ -211,7 +254,10 @@ io.on('connection', socket => {
       if (room.submissions[socket.id] !== undefined) return;
       if (idx < 0 || idx >= room.stats.length) return;
 
-      room.submissions[socket.id] = idx;
+      // capture the exact time taken to submit
+      const timeTaken = Date.now() - room.questionStartedAt;
+
+      room.submissions[socket.id] = { choice: idx, timeTaken };
       room.stats[idx]++;
 
       io.emit('live_stats', {

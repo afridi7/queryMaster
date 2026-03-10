@@ -10,16 +10,19 @@
 </head>
 <body>
   <div class="box">
-    <h1>register</h1>
-    <input id="username" placeholder="username">
-    <input id="password" type="password" placeholder="password">
-    <input id="confirm" type="password" placeholder="confirm password">
-    <button onclick="register()">create account</button>
+    <h1>Register</h1><br>
+    <input id="username" placeholder="Enter username">
+    <input id="password" type="password" placeholder="Enter password">
+    <input id="confirm" type="password" placeholder="Confirm password">
+    <button onclick="register()">Create account</button>
+    <button class="secondary" onclick="goLogin()">Already have an account?</button>
     <div id="msg" class="msg"></div>
   </div>
 
 <script>
 const BLOCKED = ['admin', 'host'];
+
+function goLogin() { window.location.href = '/index.html'; }
 
 async function register() {
   const msg = document.getElementById('msg');

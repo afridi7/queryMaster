@@ -5,48 +5,20 @@
   <title>play</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/css/main.css">
-
-  <style>
-    /* UID Badge */
-    .uid-badge {
-      position: fixed;
-      top: 15px;
-      right: 20px;
-      background: #222;
-      color: #fff;
-      padding: 8px 14px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 2px;
-      border: 1px solid #444;
-      z-index: 999;
-    }
-
-    .time-bar.danger {
-      background: #e74c3c !important;
-    }
-
-    .flash {
-      animation: flashBg 0.5s ease-in-out 3;
-    }
-
-    @keyframes flashBg {
-      0% { background:#111; }
-      50% { background:#300; }
-      100% { background:#111; }
-    }
-  </style>
+  <link rel="stylesheet" href="/css/play.css">
 </head>
 <body>
 
-<!-- UID DISPLAY -->
+<div id="startOverlay">
+  <button id="startBtn" style="font-size:22px;margin:10%;padding:18px 40px;cursor:pointer;">start game</button>
+</div>
+
 <div class="uid-badge">
-  ID: <span id="uidText">----</span>
+  id: <span id="uidText">----</span>
 </div>
 
 <div class="box quiz" id="quizBox">
-  <h2 id="q">waiting for question</h2>
+  <h2 id="q">waiting for question</h2><br>
 
   <div class="time-bar-wrap">
     <div class="time-bar" id="timeBar"></div>
@@ -61,8 +33,18 @@
   <div id="stats" class="stats"></div>
 </div>
 
+<div class="modal-overlay" id="rankModal">
+  <div class="modal-content">
+    <h3 class="modal-title" id="modalTitle">round over!</h3>
+    <div class="modal-score" id="modalScore">0 pts</div>
+    <div class="modal-rank" id="modalRank">current rank: #--</div>
+    <button class="close-btn" onclick="closeRankModal()">Continue</button>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
+
 if (localStorage.role !== 'user') location = '/';
 
 const socket = io({ query: { username: localStorage.username } });
@@ -76,32 +58,84 @@ const timeBar = document.getElementById('timeBar');
 const lockBtn = document.getElementById('lockBtn');
 const quizBox = document.getElementById('quizBox');
 
+const rankModal = document.getElementById('rankModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalScore = document.getElementById('modalScore');
+const modalRank = document.getElementById('modalRank');
+
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+
 let selectedIndex = null;
 let locked = false;
 let timerInterval = null;
 
-/* UID RECEIVE */
+let myCurrentScore = 0;
+let myCurrentRank = 0;
+
+/* sound system */
+
+const lockSound = new Audio('/audio/lock.mp3');
+const correctSound = new Audio('/audio/right.mp3');
+const wrongSound = new Audio('/audio/wrong.mp3');
+const timeUpSound = new Audio('/audio/done.mp3');
+const tickSound = new Audio('/audio/ticking.mp3');
+const lastFiveSound = new Audio('/audio/last-five.mp3');
+
+tickSound.loop = true;
+
+function safePlay(audio){
+  audio.play().catch(()=>{});
+}
+
+/* unlock audio with start button */
+
+startBtn.onclick = () => {
+
+  const sounds = [
+    lockSound,
+    correctSound,
+    wrongSound,
+    timeUpSound,
+    tickSound,
+    lastFiveSound
+  ];
+
+  sounds.forEach(a => {
+
+    a.muted = true;
+
+    a.play().then(() => {
+      a.pause();
+      a.currentTime = 0;
+      a.muted = false;
+    }).catch(()=>{});
+
+  });
+
+  startOverlay.remove();
+};
+
+/* uid receive */
 
 socket.on('your_code', code => {
   uidText.innerText = code;
   localStorage.playerCode = code;
 });
 
-// restore if page refresh
 if (localStorage.playerCode) {
   uidText.innerText = localStorage.playerCode;
 }
 
-/* SOUND SYSTEM */
+function closeRankModal() {
+  rankModal.style.display = 'none';
+}
 
-const lockSound = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
-const correctSound = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
-const wrongSound = new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg');
-const timeUpSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-
-/* QUESTION OPEN */
+/* question open */
 
 socket.on('question_open', q => {
+
+  closeRankModal();
 
   selectedIndex = null;
   locked = false;
@@ -112,6 +146,12 @@ socket.on('question_open', q => {
   lockBtn.innerText = 'lock answer';
 
   clearInterval(timerInterval);
+
+  tickSound.pause();
+  lastFiveSound.pause();
+  tickSound.currentTime = 0;
+  lastFiveSound.currentTime = 0;
+
   startTimer(q.endsAt);
 
   q.options.forEach((opt, i) => {
@@ -120,11 +160,14 @@ socket.on('question_open', q => {
     li.onclick = () => selectOption(i);
     optsEl.appendChild(li);
   });
+
+  safePlay(tickSound);
 });
 
-/* SELECT OPTION */
+/* select option */
 
 function selectOption(i) {
+
   if (locked) return;
 
   selectedIndex = i;
@@ -135,27 +178,35 @@ function selectOption(i) {
   });
 }
 
-/* LOCK ANSWER */
+/* lock answer */
 
 lockBtn.onclick = () => {
+
   if (locked || selectedIndex === null) return;
 
   locked = true;
   lockBtn.disabled = true;
   lockBtn.innerText = 'answer locked, waiting...';
 
-  lockSound.play();
+  safePlay(lockSound);
+
   freezeTimer();
   disableOptions();
+
+  tickSound.pause();
+  lastFiveSound.pause();
+  tickSound.currentTime = 0;
+  lastFiveSound.currentTime = 0;
 
   socket.emit('submit', selectedIndex);
 };
 
-/* TIMER */
+/* timer */
 
 function startTimer(end) {
 
   const totalDuration = end - Date.now();
+  let lastFivePlayed = false;
 
   timeBar.style.transition = 'none';
   timeBar.style.width = '100%';
@@ -166,19 +217,37 @@ function startTimer(end) {
   timeBar.style.width = '0%';
 
   function tick() {
+
     const remaining = Math.max(0, end - Date.now());
     timerText.innerText = Math.ceil(remaining / 1000) + 's';
 
     if (remaining <= 5000) {
+
       timeBar.classList.add('danger');
+
+      if (!lastFivePlayed) {
+
+        lastFivePlayed = true;
+
+        lastFiveSound.currentTime = 0;
+        safePlay(lastFiveSound);
+      }
     }
 
     if (remaining <= 0) {
+
       clearInterval(timerInterval);
+
       timerText.innerText = 'time up';
       lockBtn.disabled = true;
 
-      timeUpSound.play();
+      tickSound.pause();
+      lastFiveSound.pause();
+      tickSound.currentTime = 0;
+      lastFiveSound.currentTime = 0;
+
+      safePlay(timeUpSound);
+
       disableOptions();
       flashEffect();
     }
@@ -189,11 +258,13 @@ function startTimer(end) {
 }
 
 function freezeTimer() {
+
   clearInterval(timerInterval);
   timeBar.style.transition = 'none';
 }
 
 function disableOptions() {
+
   [...optsEl.children].forEach(li => {
     li.style.pointerEvents = 'none';
     li.style.opacity = '0.6';
@@ -201,49 +272,84 @@ function disableOptions() {
 }
 
 function flashEffect() {
+
   quizBox.classList.add('flash');
   setTimeout(() => quizBox.classList.remove('flash'), 1500);
 }
 
-/* SERVER EVENTS */
+/* server events */
 
 socket.on('submission_closed', () => {
+
   if (!locked) {
+
     timerText.innerText = 'time up';
     lockBtn.disabled = true;
+
     disableOptions();
     flashEffect();
+
+    tickSound.pause();
+    lastFiveSound.pause();
+    tickSound.currentTime = 0;
+    lastFiveSound.currentTime = 0;
   }
 });
 
-/* REVEAL */
+/* reveal */
 
 socket.on('reveal', r => {
 
   const correct = r.correctIndex;
 
   [...optsEl.children].forEach((li, idx) => {
+
     li.classList.remove('selected', 'locked');
 
-    if (idx === correct) {
-      li.classList.add('correct');
-    } 
-    else if (idx === selectedIndex) {
-      li.classList.add('wrong');
-    } 
-    else {
-      li.classList.add('dim');
-    }
+    if (idx === correct) li.classList.add('correct');
+    else if (idx === selectedIndex) li.classList.add('wrong');
+    else li.classList.add('dim');
+
   });
 
-  if (selectedIndex === correct) {
-    correctSound.play();
-  } else {
-    wrongSound.play();
-  }
+  if (selectedIndex === correct) safePlay(correctSound);
+  else safePlay(wrongSound);
 
   statsEl.innerText = 'answer revealed';
+
+  const myCode = localStorage.playerCode;
+  const me = r.leaderboard.find(p => p.code === myCode);
+  const myRank = r.leaderboard.findIndex(p => p.code === myCode) + 1;
+
+  if (me) {
+    myCurrentScore = me.score;
+    myCurrentRank = myRank;
+  }
 });
+
+/* final winner reveal */
+
+socket.on('show_winners', top3 => {
+
+  const myCode = localStorage.playerCode;
+  const myRankInTop3 = top3.findIndex(p => p.code === myCode) + 1;
+
+  if (myRankInTop3 > 0) {
+    modalTitle.innerText = 'you won!';
+    modalTitle.style.color = '#f8b163';
+  } else {
+    modalTitle.innerText = 'game over!';
+    modalTitle.style.color = '#481e02';
+  }
+
+  modalScore.innerText = myCurrentScore + ' pts';
+
+  if (myCurrentRank > 0) modalRank.innerText = 'final rank: #' + myCurrentRank;
+  else modalRank.innerText = 'unranked';
+
+  rankModal.style.display = 'flex';
+});
+
 </script>
 </body>
 </html>

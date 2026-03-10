@@ -2,70 +2,20 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>queryMaster – Live Screen</title>
+  <title>queryMaster – live screen</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/host.css">
 
-  <style>
-    /* WINNER SCREEN */
-    .winner-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.95);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      display: none;
-    }
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
-    .winner-title {
-      font-size: 48px;
-      margin-bottom: 40px;
-    }
-
-    .podium {
-      display: flex;
-      align-items: flex-end;
-      gap: 40px;
-    }
-
-    .podium-item {
-      text-align: center;
-      padding: 20px;
-      border-radius: 12px;
-      min-width: 200px;
-      animation: rise 0.8s ease forwards;
-    }
-
-    .first { background: gold; height: 260px; }
-    .second { background: silver; height: 220px; }
-    .third { background: #cd7f32; height: 180px; }
-
-    .podium-item h3 {
-      margin: 0;
-      font-size: 22px;
-    }
-
-    .podium-item p {
-      margin: 6px 0;
-      font-weight: bold;
-    }
-
-    @keyframes rise {
-      from { transform: translateY(100px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-  </style>
 </head>
 
 <body class="host-screen">
 
   <!-- WINNER OVERLAY -->
   <div class="winner-overlay" id="winnerOverlay">
-    <div class="winner-title">🏆 TOP 3 WINNERS 🏆</div>
+    <div class="winner-title">🏆 champions 🏆</div>
     <div class="podium" id="podium"></div>
   </div>
 
@@ -84,7 +34,7 @@
 
   <!-- LEADERBOARD -->
   <div class="leaderboard">
-    <h2>Leaderboard</h2>
+    <h2>leaderboard</h2>
     <div class="lb-list" id="lbList"></div>
   </div>
 
@@ -108,7 +58,7 @@ socket.on('question_open', q => {
 
   winnerOverlay.style.display = 'none';
 
-  metaEl.innerText = `LIVE QUESTION`;
+  metaEl.innerText = `live question`;
   qEl.innerText = q.text;
   optionsEl.innerHTML = '';
   clearInterval(timerInterval);
@@ -126,7 +76,6 @@ socket.on('question_open', q => {
 
 /* TIMER */
 function startTimer(end) {
-
   clearInterval(timerInterval);
 
   const total = end - Date.now();
@@ -181,24 +130,61 @@ socket.on('reveal', r => {
 
 /* TOP 3 WINNER DISPLAY */
 socket.on('show_winners', top3 => {
-
+  
   podium.innerHTML='';
   winnerOverlay.style.display='flex';
 
-  const positions = ['first','second','third'];
+  // map out styles and icons for each rank
+  const ranks = [
+    { class: 'first', medal: '🏆' },
+    { class: 'second', medal: '🥈' },
+    { class: 'third', medal: '🥉' }
+  ];
 
   top3.forEach((p,i)=>{
+    const rank = ranks[i];
+    if(!rank) return;
+
     const div=document.createElement('div');
-    div.className=`podium-item ${positions[i] || ''}`;
+    div.className=`podium-item ${rank.class}`;
+    
+    // we use inline visibility trick here to hide elements before animation finishes
     div.innerHTML=`
-      <h3>${i+1} Place</h3>
-      <p>${p.username}</p>
-      <p>ID: ${p.code}</p>
-      <p>${p.score} pts</p>
+      <div class="medal">${rank.medal}</div>
+      <h3>${p.username}</h3>
+      <p>id: ${p.code}</p>
+      <div class="score-badge">${p.score} pts</div>
     `;
     podium.appendChild(div);
   });
+
+  // launch confetti celebration
+  fireConfetti();
 });
+
+/* confetti logic */
+function fireConfetti() {
+  const duration = 6 * 1000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+    // fire from left and right edges
+    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+  }, 250);
+}
 </script>
 </body>
 </html>
